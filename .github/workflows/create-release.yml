@@ -41,18 +41,32 @@ jobs:
         run: |
           mkdir -p artifacts
           cd templates/Resource_Manager_Template
-          zip -r ../../artifacts/Resource_Manager_Template-v${{ env.VERSION }}.zip .
+          zip -r ../../artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip .
           cd ../..
 
-      # Step 4: Create a GitHub Release and attach the ZIP file
+      # Step 4: Create a GitHub Release
       - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+        uses: actions/create-release@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v${{ env.VERSION }}
-          name: Release v${{env.VERSION}}
+          tag: ${{ env.VERSION }}
+          name: Release ${{env.VERSION}}
           body: | 
-            This release contains the terraform configuration for version v${{ env.VERSION }}.
-          files: artifacts/Resource_Manager_Template-v${{ env.VERSION }}.zip
+            This release contains the terraform configuration for version ${{ env.VERSION }}.
+          draft: false
+          prerelease: false
+
+    # Step 5: Upload the ZIP file to the release
+      - name: Upload the ZIP file
+        uses: actions/upload-zip-to-release@v1
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          zip_path: artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip
+          zip_name: Resource_Manager_Template-${{ env.VERSION }}.zip
+          content_type: application/zip
+
+
+
+
+
 
 
