@@ -8,9 +8,6 @@ on:
   push:
     branches: [ "sbaliyambra/CSPG-51088-upload-terraform-template" ]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "create-release"
@@ -27,7 +24,7 @@ jobs:
       - name: Get version from templates
         id: get_version
         run: |
-          version=$grep -E 'template_version.*=.*"' templates/Resource_Manager_Template/outputs.tf | sed -E 's/.*"([^"]".*/\1/')
+          version=$(grep -E 'template_version.*=.*"' templates/Resource_Manager_Template/outputs.tf | sed -E 's/.*"([^"])".*/\1/')
           if [ -z "$version" ]; then
             echo "Error: template_version not found in outputs.tf" >&2
             exit 1
@@ -41,7 +38,6 @@ jobs:
           cd templates/Resource_Manager_Template
           zip -r ../../artifacts/Resource_Manager_Template-v${{ env.VERSION }}.zip .
           cd ../..
-          echo test, and deploy your project.
 
       # Step 4: Create a GitHub Release and attach the ZIP file
       - name: Create GitHub Release
