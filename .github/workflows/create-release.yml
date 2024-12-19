@@ -24,7 +24,12 @@ jobs:
       - name: Get version from templates
         id: get_version
         run: |
-          version=$(grep -E 'template_version.*=.*"' templates/Resource_Manager_Template/outputs.tf | sed -E 's/.*"([^"])".*/\1/')
+          echo "Searching for template_version in outputs.tf..."
+          grep_result=$(grep -E 'output "template_version"' -A2 templates/Resource_Manager_Template/outputs.tf)
+          echo "Grep result:"
+          echo "$grep_result"
+          version=$(echo "$grep_result" | grep 'value' | sed -E 's/.*"(v[0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          echo "Extracted version: $version"
           if [ -z "$version" ]; then
             echo "Error: template_version not found in outputs.tf" >&2
             exit 1
