@@ -1,0 +1,57 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Generate Resource Manager Template Release
+
+# Controls when the workflow will run
+# Triggers the workflow on push or pull request events but only for the "main" branch
+on:
+  push:
+    branches: [ "sbaliyambra/CSPG-51088-upload-terraform-template" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "create-release"
+  create-release:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+
+      # Step 2: Get version from templates
+      - name: Get version from templates
+        id: get_version
+        run: |
+          version=$grep -E 'template_version.*=.*"' templates/Resource_Manager_Template/outputs.tf | sed -E 's/.*"([^"]".*/\1/')
+          if [ -z "$version" ]; then
+            echo "Error: template_version not found in outputs.tf" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      # Step 3: Create a ZIP for the Resource Manager Template Directory
+      - name: Create Resource_Manager_Template Zip
+        run: |
+          mkdir -p artifacts
+          cd templates/Resource_Manager_Template
+          zip -r ../../artifacts/Resource_Manager_Template-v${{ env.VERSION }}.zip .
+          cd ../..
+          echo test, and deploy your project.
+
+      # Step 4: Create a GitHub Release and attach the ZIP file
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: v${{ env.VERSION }}
+          name: Release v${{env.VERSION}}
+          body: | 
+            This release contains the terraform configuration for version v${{ env.VERSION }}.
+          files: artifacts/Resource_Manager_Template-v${{ env.VERSION }}.zip
+
+
