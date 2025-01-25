@@ -113,11 +113,11 @@ resource "oci_identity_policy" "fcs_inventory_policy" {
   description     = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id  = var.tenancy_ocid
   statements = [
-    "Allow group ${var.group_name} to read policies in tenancy",
-    "Allow group ${var.group_name} to inspect compartments in tenancy",
-    "Allow group ${var.group_name} to inspect users in tenancy",
-    "Allow group ${var.group_name} to inspect groups in tenancy",
-    "Allow group ${var.group_name} to inspect domains in tenancy"
+    "Allow group '${var.domain_name}'/'${var.group_name}' to read policies in tenancy",
+    "Allow group '${var.domain_name}'/'${var.group_name}' to inspect compartments in tenancy",
+    "Allow group '${var.domain_name}'/'${var.group_name}' to inspect users in tenancy",
+    "Allow group '${var.domain_name}'/'${var.group_name}' to inspect groups in tenancy",
+    "Allow group '${var.domain_name}'/'${var.group_name}' to inspect domains in tenancy"
   ]
 }
 
