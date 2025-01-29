@@ -108,7 +108,9 @@ resource "oci_identity_user_group_membership" "fcs_user_into_group" {
 }
 
 # Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
-resource "oci_identity_policy" "fcs_inventory_policy" {
+# This resource will get created if domain is not enabled
+resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
+  count = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
   name            = var.policy_name
   description     = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id  = var.tenancy_ocid
@@ -118,6 +120,22 @@ resource "oci_identity_policy" "fcs_inventory_policy" {
     "Allow group ${var.group_name} to inspect users in tenancy",
     "Allow group ${var.group_name} to inspect groups in tenancy",
     "Allow group ${var.group_name} to inspect domains in tenancy"
+  ]
+}
+
+# Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
+# This resource will get created if domain enabled
+resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
+  count = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
+  name            = var.policy_name
+  description     = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
+  compartment_id  = var.tenancy_ocid
+  statements = [
+    "Allow group 'Default'/'${var.group_name}' to read policies in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to inspect compartments in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to inspect users in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to inspect groups in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to inspect domains in tenancy"
   ]
 }
 
