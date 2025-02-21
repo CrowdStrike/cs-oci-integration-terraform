@@ -20,6 +20,7 @@ variable "policy_name" {
 
 variable "user_email_address" {
     description = "Email address that will be associated with the IAM user created by this template. Most OCI Identity Domains have a setting that requires each IAM user to have a valid email. This can be any valid email address, even one that's already associated with another IAM user in the tenancy."
+    default = ""
 }
 
 variable "api_public_key" {
