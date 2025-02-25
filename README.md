@@ -1,6 +1,6 @@
 ![CrowdStrike Falcon](https://raw.githubusercontent.com/CrowdStrike/falconpy/main/docs/asset/cs-logo.png)
 
-# Falcon Cloud Registration for Oracle Cloud
+# Falcon Cloud Security Registration for Oracle Cloud
 
 ## Overview
 
