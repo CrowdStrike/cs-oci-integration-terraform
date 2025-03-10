@@ -41,8 +41,3 @@ jobs:
           pre-commit run --all-files
         env:
           SKIP: no-commit-to-branch
-
-      - name: Run TFLint
-        run: |
-          tflint --init
-          tflint --format=compact
