@@ -4,7 +4,7 @@ output "user_ocid" {
 }
 
 output "template_version" {
-  value = module.iom.template_version
+  value       = "v0.3.4"
   description = "The version of CrowdStrike's OCI integration supported by this template."
 }
 
