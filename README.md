@@ -56,4 +56,4 @@ For issues or questions, please contact CrowdStrike support or refer to the Falc
 
 ## License Information
 
-See the [LICENSE](https://github.com/CrowdStrike/azure-cspm-registration-bicep/main/LICENSE) for more information.
+See the [LICENSE](https://github.com/CrowdStrike/cs-oci-integration-terraform/blob/main/LICENSE) for more information.
