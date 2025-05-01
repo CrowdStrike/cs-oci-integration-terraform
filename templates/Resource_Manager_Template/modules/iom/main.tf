@@ -121,7 +121,8 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
     "Allow group ${var.group_name} to inspect domains in tenancy",
     "Allow group ${var.group_name} to inspect orm-stacks in tenancy",
     "Allow group ${var.group_name} to read instances in tenancy",
-    "Allow group ${var.group_name} to read buckets in tenancy"
+    "Allow group ${var.group_name} to read buckets in tenancy",
+    "Allow group ${var.group_name} to read vcns in tenancy"
   ]
 }
 
@@ -140,7 +141,8 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
     "Allow group 'Default'/'${var.group_name}' to inspect domains in tenancy",
     "Allow group 'Default'/'${var.group_name}' to inspect orm-stacks in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read instances in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read buckets in tenancy"
+    "Allow group 'Default'/'${var.group_name}' to read buckets in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to read vcns in tenancy"
   ]
 }
 
