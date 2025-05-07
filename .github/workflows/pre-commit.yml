@@ -23,8 +23,26 @@ jobs:
 
       - name: Install TFLint
         run: |
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-          tflint --version
+          # Get latest version number
+          TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Installing TFLint version: ${TFLINT_VERSION}"
+          
+          # Download TFLint
+          curl -s -L -o tflint.zip "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip"
+          
+          # Get and verify checksum
+          EXPECTED_SHA=$(curl -s -L "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/checksums.txt" | grep "tflint_linux_amd64.zip" | awk '{print $1}')
+          
+          # Verify checksum 
+          if echo "${EXPECTED_SHA} tflint.zip" | sha256sum -c; then
+            echo "Hash verification successful - proceeding with installation"
+            unzip tflint.zip
+            sudo mv tflint /usr/local/bin/
+            tflint --version
+          else
+            echo "Hash verification failed - script not executed"
+            exit 1
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
