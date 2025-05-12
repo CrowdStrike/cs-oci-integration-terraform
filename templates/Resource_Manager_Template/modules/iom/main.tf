@@ -123,7 +123,9 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
     "Allow group ${var.group_name} to read instances in tenancy",
     "Allow group ${var.group_name} to read buckets in tenancy",
     "Allow group ${var.group_name} to read virtual-network-family in tenancy",
-    "Allow group ${var.group_name} to inspect autonomous-database-family in tenancy"
+    "Allow group ${var.group_name} to inspect autonomous-database-family in tenancy",
+    "Allow group ${var.group_name} to read secret-family in tenancy",
+    "Allow group ${var.group_name} to read file-family in tenancy"
   ]
 }
 
@@ -144,7 +146,9 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
     "Allow group 'Default'/'${var.group_name}' to read instances in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read buckets in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read virtual-network-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect autonomous-database-family in tenancy"
+    "Allow group 'Default'/'${var.group_name}' to inspect autonomous-database-family in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to read secret-family in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to read file-family in tenancy"
   ]
 }
 
