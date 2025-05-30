@@ -128,7 +128,6 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
     "Allow group ${var.group_name} to read vaults in tenancy",
     "Allow group ${var.group_name} to read keys in tenancy",
     "Allow group ${var.group_name} to read file-family in tenancy",
-    "Allow group ${var.group_name} to inspect cluster-family in tenancy",
     "Allow group ${var.group_name} to read cluster-family in tenancy"
   ]
 }
@@ -155,7 +154,6 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
     "Allow group 'Default'/'${var.group_name}' to read vaults in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read keys in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read file-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect cluster-family in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read cluster-family in tenancy"
   ]
 }
