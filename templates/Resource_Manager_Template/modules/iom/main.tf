@@ -130,7 +130,9 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
     "Allow group ${var.group_name} to read file-family in tenancy",
     "Allow group ${var.group_name} to read cluster-family in tenancy",
     "Allow group ${var.group_name} to read cloudevents-rules in tenancy",
-    "Allow group ${var.group_name} to read volume-family in tenancy"
+    "Allow group ${var.group_name} to read volume-family in tenancy",
+    "Allow group ${var.group_name} to inspect load-balancers in tenancy"
+
   ]
 }
 
@@ -158,7 +160,8 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
     "Allow group 'Default'/'${var.group_name}' to read file-family in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read cluster-family in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read cloudevents-rules in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read volume-family in tenancy"
+    "Allow group 'Default'/'${var.group_name}' to read volume-family in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to inspect load-balancers in tenancy"
   ]
 }
 
