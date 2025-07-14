@@ -4,6 +4,6 @@ output "user_ocid" {
 }
 
 output "template_version" {
-  value       = "v0.3.16"
+  value       = "v0.3.17"
   description = "The version of CrowdStrike's OCI integration supported by this template"
 }
