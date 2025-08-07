@@ -70,7 +70,6 @@ data "oci_identity_region_subscriptions" "homeregion" {
   }
 }
 
-
 # ---------------------------------------------------------------------------------------------------------------------
 #DEPLOY RESOURCES
 # ---------------------------------------------------------------------------------------------------------------------
@@ -78,6 +77,7 @@ data "oci_identity_region_subscriptions" "homeregion" {
 
 # Creates new IAM user that will be used by Falcon Cloud Security to access tenancy
 resource "oci_identity_user" "fcs_inventory_user" {
+  provider       = oci.home_region
   compartment_id = var.tenancy_ocid
   name           = var.user_name
   description    = "DO NOT TOUCH. Service account used by CrowdStrike to inventory resources in tenancy"
@@ -95,6 +95,7 @@ resource "oci_identity_user" "fcs_inventory_user" {
 
 # Creates group to house the IAM user defined by "fcs_inventory_user"
 resource "oci_identity_group" "fcs_inventory_group" {
+  provider       = oci.home_region
   compartment_id = var.tenancy_ocid
   name           = var.group_name
   description    = "DO NOT TOUCH. Group for CrowdStrike Falcon Cloud Security (FCS) service account. Used by FCS to generate inventory of all supported resources in the tenancy"
@@ -102,6 +103,7 @@ resource "oci_identity_group" "fcs_inventory_group" {
 
 # Add "fcs_inventory_user" to "fcs_inventory_group"
 resource "oci_identity_user_group_membership" "fcs_user_into_group" {
+  provider = oci.home_region
   group_id = oci_identity_group.fcs_inventory_group.id
   user_id  = oci_identity_user.fcs_inventory_user.id
 }
@@ -109,6 +111,7 @@ resource "oci_identity_user_group_membership" "fcs_user_into_group" {
 # Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
 # This resource will get created if domain is not enabled
 resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
+  provider       = oci.home_region
   count          = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
@@ -147,6 +150,7 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
 # Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
 # This resource will get created if domain enabled
 resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
+  provider       = oci.home_region
   count          = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
@@ -185,6 +189,7 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
 # Associates the public key portion of an API key with the IAM user defined by "fcs_inventory_user". Falcon Cloud Security will use this API key to authenticate into tenancy as the associated IAM user.
 # This resource is only created if tenancy uses Identity Domains.
 resource "oci_identity_domains_api_key" "fcs_inventory_user_api_key" {
+  provider      = oci.home_region
   count         = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
   idcs_endpoint = local.idcs_endpoint
   key           = local.reformatted_api_public_key
@@ -205,6 +210,7 @@ resource "oci_identity_domains_api_key" "fcs_inventory_user_api_key" {
 # Associates the public key portion of an API key with the IAM user defined by "fcs_inventory_user". Falcon Cloud Security will use this API key to authenticate into tenancy as the associated IAM user.
 # This resource is only created if tenancy does not use Identity Domains.
 resource "oci_identity_api_key" "fcs_inventory_user_api_key" {
+  provider  = oci.home_region
   count     = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
   key_value = local.reformatted_api_public_key
   user_id   = oci_identity_user.fcs_inventory_user.id
