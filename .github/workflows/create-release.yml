@@ -64,7 +64,7 @@ jobs:
           cd templates/Resource_Manager_Template
           zip -r ../../artifacts/Resource_Manager_Template-latest.zip .
           cd ../..
-        # Verify the file was created
+          # Verify the file was created
           if [ -f "artifacts/Resource_Manager_Template-latest.zip" ]; then
             echo "✅ Static ZIP created successfully"
             ls -la artifacts/Resource_Manager_Template-latest.zip
