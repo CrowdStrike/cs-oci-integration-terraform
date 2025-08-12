@@ -59,17 +59,32 @@ jobs:
           prerelease: true
 
     # Step 5: Upload the ZIP file to the release
-      - name: Upload the ZIP file
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip
-          asset_name: Resource_Manager_Template-${{ env.VERSION }}.zip
-          asset_content_type: application/zip
+#      - name: Upload the ZIP file
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create-release.outputs.upload_url }}
+#          asset_path: artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip
+#          asset_name: Resource_Manager_Template-${{ env.VERSION }}.zip
+#          asset_content_type: application/zip
 
-    # Step 6: Delete existing static ZIP (Resource_Manager_Template-latest.zip) file from previous releases
+    # Step 6 : Create a static ZIP for the Resource Manager Template Directory
+      - name: Create Resource_Manager_Template Static Zip
+        run: |
+          cd templates/Resource_Manager_Template
+          zip -r ../../artifacts/Resource_Manager_Template-latest.zip .
+          cd ../..
+        # Verify the file was created
+          if [ -f "artifacts/Resource_Manager_Template-latest.zip" ]; then
+            echo "✅ Static ZIP created successfully"
+            ls -la artifacts/Resource_Manager_Template-latest.zip
+          else
+            echo "❌ Failed to create static ZIP"
+            exit 1
+          fi
+
+    # Step 7: Delete existing static ZIP (Resource_Manager_Template-latest.zip) file from previous releases
       - name: Delete previous static asset from all releases
         continue-on-error: true
         run: |
@@ -90,7 +105,7 @@ jobs:
             
             echo "Cleanup completed"
           
-    # Step 7: Upload new static ZIP to current release
+    # Step 8: Upload new static ZIP to current release
       - name: Upload the static ZIP file
         uses: actions/upload-release-asset@v1
         env:
@@ -101,7 +116,7 @@ jobs:
           asset_name: Resource_Manager_Template-latest.zip
           asset_content_type: application/zip
 
-    # Step 8: Upload new static ZIP to current release
+    # Step 9: Upload new static ZIP to current release
       - name: Verify static ZIP upload
         run: |
             echo "✅ Successfully uploaded both assets:"
