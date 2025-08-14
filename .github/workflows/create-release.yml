@@ -6,7 +6,7 @@ name: Generate Resource Manager Template Release
 # Triggers the workflow on push or pull request events but only for the "main" branch
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" , "sbaliyambra/create-static-template-url"]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -55,10 +55,13 @@ jobs:
           release_name: Release ${{env.VERSION}}
           body: | 
             This release contains the terraform configuration for version ${{ env.VERSION }}.
+            **Assets:**
+            - `Resource_Manager_Template-${{ env.VERSION }}.zip` - Version-specific template for auditing
+            - `Resource_Manager_Template-latest.zip` - Static template URL (always points to latest)
           draft: false
           prerelease: false
 
-      # Step 5: Create a GitHub Release
+      # Step 5: Upload the versioned ZIP file
       - name: Upload the versioned ZIP file
         uses: actions/upload-release-asset@v1
         env:
@@ -91,8 +94,16 @@ jobs:
             echo "Searching for existing static assets to remove..."
             
             # Get all releases
-            RELEASES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100")
+             RELEASES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \"https://api.github.com/repos/${{ github.repository }}/releases?per_page=100") || {
+              echo "❌ Failed to fetch releases"
+              exit 1
+            }
+          
+            # Validate that we got valid JSON
+            if ! echo "$RELEASES" | jq empty 2>/dev/null; then
+              echo "❌ Invalid JSON response from GitHub API"
+             exit 1
+           fi
             
             # Find and delete Resource_Manager_Template-latest.zip from all releases
             echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read asset_id; do
@@ -101,9 +112,20 @@ jobs:
                 curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
               fi
-            done
-            
-            echo "Cleanup completed"
+          
+           # Find and delete Resource_Manager_Template-latest.zip from all releases
+           echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read -r asset_id; do
+            [ -n "$asset_id" ] && {
+              echo "Deleting asset ID: $asset_id"
+              curl -X DELETE -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id" || {
+                echo "❌ Failed to delete asset $asset_id"
+                exit 1
+            }
+            echo "✅ Successfully deleted asset $asset_id"
+          }
+          done
+          echo "✅ Cleanup completed"
           
       # Step 8: Upload new static ZIP to current release
       - name: Upload the static ZIP file
@@ -116,14 +138,27 @@ jobs:
           asset_name: Resource_Manager_Template-latest.zip
           asset_content_type: application/zip
 
-      # Step 9: Verify static ZIP upload
+      # Step 9: Verify static ZIP upload and test URL
       - name: Verify static ZIP upload
         run: |
-            echo "✅ Successfully uploaded both assets:"
-            echo "   📋 Resource_Manager_Template-${{ env.VERSION }}.zip (for auditing)"
-            echo "   🔗 Resource_Manager_Template-latest.zip (static URL)"
-            echo ""
-            echo "Static URL: https://github.com/${{ github.repository }}/releases/latest/download/Resource_Manager_Template-latest.zip"
+          echo "✅ Successfully uploaded both assets:"
+          echo "   📋 Resource_Manager_Template-${{ env.VERSION }}.zip (for auditing)"
+          echo "   🔗 Resource_Manager_Template-latest.zip (static URL)"
+          echo ""
+          
+          STATIC_URL="https://github.com/${{ github.repository }}/releases/latest/download/Resource_Manager_Template-latest.zip"
+          echo "Static URL: $STATIC_URL"
+          
+          # Test that the static URL is accessible (returns 200 or 302)
+          echo "Testing static URL accessibility..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -I "$STATIC_URL" 2>/dev/null)
+          
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "302" ]; then
+            echo "✅ Static URL is accessible (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️ Static URL returned HTTP $HTTP_STATUS - may need time to propagate"
+            # Don't fail the workflow for this, as it might just need time
+          fi
 
 
 
