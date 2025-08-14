@@ -91,40 +91,34 @@ jobs:
       - name: Delete previous static asset from all releases
         continue-on-error: true
         run: |
-            echo "Searching for existing static assets to remove..."
-            
-            # Get all releases
-             RELEASES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \"https://api.github.com/repos/${{ github.repository }}/releases?per_page=100") || {
-              echo "❌ Failed to fetch releases"
-              exit 1
-            }
+          echo "Searching for existing static assets to remove..."
           
-            # Validate that we got valid JSON
-            if ! echo "$RELEASES" | jq empty 2>/dev/null; then
-              echo "❌ Invalid JSON response from GitHub API"
-             exit 1
-           fi
-            
-            # Find and delete Resource_Manager_Template-latest.zip from all releases
-            echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read asset_id; do
-              if [ ! -z "$asset_id" ]; then
-                echo "Deleting asset ID: $asset_id"
-                curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
-              fi
+          # Get all releases with error handling
+          RELEASES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100") || {
+            echo "❌ Failed to fetch releases"
+            exit 1
+          }
           
-           # Find and delete Resource_Manager_Template-latest.zip from all releases
-           echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read -r asset_id; do
+          # Validate that we got valid JSON
+          if ! echo "$RELEASES" | jq empty 2>/dev/null; then
+            echo "❌ Invalid JSON response from GitHub API"
+            exit 1
+          fi
+          
+          # Find and delete Resource_Manager_Template-latest.zip from all releases
+          echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read -r asset_id; do
             [ -n "$asset_id" ] && {
               echo "Deleting asset ID: $asset_id"
               curl -X DELETE -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                 "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id" || {
                 echo "❌ Failed to delete asset $asset_id"
                 exit 1
+              }
+              echo "✅ Successfully deleted asset $asset_id"
             }
-            echo "✅ Successfully deleted asset $asset_id"
-          }
           done
+          
           echo "✅ Cleanup completed"
           
       # Step 8: Upload new static ZIP to current release
