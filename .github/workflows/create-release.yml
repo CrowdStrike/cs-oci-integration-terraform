@@ -55,19 +55,105 @@ jobs:
           release_name: Release ${{env.VERSION}}
           body: | 
             This release contains the terraform configuration for version ${{ env.VERSION }}.
+            **Assets:**
+            - `Resource_Manager_Template-${{ env.VERSION }}.zip` - Version-specific template for auditing
+            - `Resource_Manager_Template-latest.zip` - Static template URL (always points to latest)
           draft: false
           prerelease: false
 
-    # Step 5: Upload the ZIP file to the release
-      - name: Upload the ZIP file
+      # Step 5: Upload the versioned ZIP file
+      - name: Upload the versioned ZIP file
+        uses: actions/upload-release-asset@v1
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+            upload_url: ${{ steps.create-release.outputs.upload_url }}
+            asset_path: artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip
+            asset_name: Resource_Manager_Template-${{ env.VERSION }}.zip
+            asset_content_type: application/zip
+
+      # Step 6: Create a static ZIP for the Resource Manager Template Directory
+      - name: Create Resource_Manager_Template Static Zip
+        run: |
+          cd templates/Resource_Manager_Template
+          zip -r ../../artifacts/Resource_Manager_Template-latest.zip .
+          cd ../..
+          # Verify the file was created
+          if [ -f "artifacts/Resource_Manager_Template-latest.zip" ]; then
+            echo "✅ Static ZIP created successfully"
+            ls -la artifacts/Resource_Manager_Template-latest.zip
+          else
+            echo "❌ Failed to create static ZIP"
+            exit 1
+          fi
+
+      # Step 7: Delete existing static ZIP (Resource_Manager_Template-latest.zip) file from previous releases
+      - name: Delete previous static asset from all releases
+        continue-on-error: true
+        run: |
+          echo "Searching for existing static assets to remove..."
+          
+          # Get all releases with error handling
+          RELEASES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100") || {
+            echo "❌ Failed to fetch releases"
+            exit 1
+          }
+          
+          # Validate that we got valid JSON
+          if ! echo "$RELEASES" | jq empty 2>/dev/null; then
+            echo "❌ Invalid JSON response from GitHub API"
+            exit 1
+          fi
+          
+          # Find and delete Resource_Manager_Template-latest.zip from all releases
+          echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read -r asset_id; do
+            [ -n "$asset_id" ] && {
+              echo "Deleting asset ID: $asset_id"
+              curl -X DELETE -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id" || {
+                echo "❌ Failed to delete asset $asset_id"
+                exit 1
+              }
+              echo "✅ Successfully deleted asset $asset_id"
+            }
+          done
+          
+          echo "✅ Cleanup completed"
+          
+      # Step 8: Upload new static ZIP to current release
+      - name: Upload the static ZIP file
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip
-          asset_name: Resource_Manager_Template-${{ env.VERSION }}.zip
+          asset_path: artifacts/Resource_Manager_Template-latest.zip
+          asset_name: Resource_Manager_Template-latest.zip
           asset_content_type: application/zip
+
+      # Step 9: Verify static ZIP upload and test URL
+      - name: Verify static ZIP upload
+        run: |
+          echo "✅ Successfully uploaded both assets:"
+          echo "   📋 Resource_Manager_Template-${{ env.VERSION }}.zip (for auditing)"
+          echo "   🔗 Resource_Manager_Template-latest.zip (static URL)"
+          echo ""
+          
+          STATIC_URL="https://github.com/${{ github.repository }}/releases/latest/download/Resource_Manager_Template-latest.zip"
+          echo "Static URL: $STATIC_URL"
+          
+          # Test that the static URL is accessible (returns 200 or 302)
+          echo "Testing static URL accessibility..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -I "$STATIC_URL" 2>/dev/null)
+          
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "302" ]; then
+            echo "✅ Static URL is accessible (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️ Static URL returned HTTP $HTTP_STATUS - may need time to propagate"
+            # Don't fail the workflow for this, as it might just need time
+          fi
+
 
 
 
