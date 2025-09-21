@@ -150,6 +150,7 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
     "Allow group ${var.group_name} to read logging-family in tenancy",
     "Allow group ${var.group_name} to read route-tables in tenancy",
     "Allow group ${var.group_name} to read network-security-groups in tenancy",
+    "Allow group ${var.group_name} to read mysql-family in tenancy",
   ]
 }
 
@@ -197,6 +198,7 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
     "Allow group 'Default'/'${var.group_name}' to read logging-family in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read route-tables in tenancy",
     "Allow group 'Default'/'${var.group_name}' to read network-security-groups in tenancy",
+    "Allow group 'Default'/'${var.group_name}' to read mysql-family in tenancy",
 
   ]
 }
