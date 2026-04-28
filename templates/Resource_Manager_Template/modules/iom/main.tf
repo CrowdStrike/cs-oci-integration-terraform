@@ -2,8 +2,9 @@ terraform {
   required_version = ">= 1.2.0"
   required_providers {
     oci = {
-      source  = "oracle/oci"
-      version = "~> 4.0"
+      source                = "oracle/oci"
+      version               = "~> 4.0"
+      configuration_aliases = [oci.home_region]
     }
   }
 }
@@ -57,17 +58,9 @@ locals {
 
 # This will see if a the Default Identity Domain exists in the tenancy, to determine if tenancy uses Identity Domains or not (the resources that get deployed change depending on if a tenancy is using Identity Domains and data from the default domain is needed to configure some of the resources).
 data "oci_identity_domains" "default_domain" {
+  provider       = oci.home_region
   compartment_id = var.tenancy_ocid
   display_name   = "Default"
-}
-
-# Determines the home region for the Tenancy where this template is being deployed
-data "oci_identity_region_subscriptions" "homeregion" {
-  tenancy_id = var.tenancy_ocid
-  filter {
-    name   = "is_home_region"
-    values = ["true"]
-  }
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -86,8 +79,8 @@ resource "oci_identity_user" "fcs_inventory_user" {
   # Checks that the tenancy's home region matches the value that was provided in the first step of the Falcon Cloud Security registration wizard
   lifecycle {
     precondition {
-      condition     = var.expected_home_region == data.oci_identity_region_subscriptions.homeregion.region_subscriptions[0].region_name
-      error_message = "This tenancy has been configured in Falcon Cloud Security with a home region of ${var.expected_home_region}. It appears that the actual home region is ${data.oci_identity_region_subscriptions.homeregion.region_subscriptions[0].region_name}. To fix this:\n1. Delete this stack in OCI Resource Manager. \n2. Go to the Falcon Cloud Security console and open the registration wizard for this tenancy.\n3. Go to Step 1 in the wizard and change the Home Region dropdown from ${var.expected_home_region} to ${data.oci_identity_region_subscriptions.homeregion.region_subscriptions[0].region_name}.\n4. Download the updated template.\n5. Return to OCI Resource Manager and run the new template."
+      condition     = var.expected_home_region == var.home_region_name
+      error_message = "This tenancy has been configured in Falcon Cloud Security with a home region of ${var.expected_home_region}. It appears that the actual home region is ${var.home_region_name}. To fix this:\n1. Delete this stack in OCI Resource Manager. \n2. Go to the Falcon Cloud Security console and open the registration wizard for this tenancy.\n3. Go to Step 1 in the wizard and change the Home Region dropdown from ${var.expected_home_region} to ${var.home_region_name}.\n4. Download the updated template.\n5. Return to OCI Resource Manager and run the new template."
     }
   }
 }
