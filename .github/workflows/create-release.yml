@@ -1,163 +1,48 @@
-# This is a basic workflow to help you get started with Actions
+name: Create Release
 
-name: Generate Resource Manager Template Release
-
-# Controls when the workflow will run
-# Triggers the workflow on push or pull request events but only for the "main" branch
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - "v*.*.*"
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "create-release"
-  create-release:
-    # The type of runner that the job will run on
+  release:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    permissions:
+      contents: write
     steps:
-      # Step 1: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      # Step 2: Get version from templates
-      - name: Get version from templates
-        id: get_version
-        run: |
-          echo "Searching for template_version in outputs.tf..."
-          grep_result=$(grep -E 'output "template_version"' -A2 templates/Resource_Manager_Template/outputs.tf)
-          echo "Grep result:"
-          echo "$grep_result"
-          version=$(echo "$grep_result" | grep 'value' | sed -E 's/.*"(v[0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
-          echo "Extracted version: $version"
-          if [ -z "$version" ]; then
-            echo "Error: template_version not found in outputs.tf" >&2
-            exit 1
-          fi
-          echo "VERSION=$version" >> $GITHUB_ENV
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
-      # Step 3: Create a ZIP for the Resource Manager Template Directory
-      - name: Create Resource_Manager_Template Zip
-        run: |
-          mkdir -p artifacts
-          cd templates/Resource_Manager_Template
-          zip -r ../../artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip .
-          cd ../..
-
-      # Step 4: Create a GitHub Release
-      - name: Create GitHub Release
-        id: create-release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.VERSION }}
-          release_name: Release ${{env.VERSION}}
-          body: | 
-            This release contains the terraform configuration for version ${{ env.VERSION }}.
-            **Assets:**
-            - `Resource_Manager_Template-${{ env.VERSION }}.zip` - Version-specific template for auditing
-            - `Resource_Manager_Template-latest.zip` - Static template URL (always points to latest)
-          draft: false
-          prerelease: false
-
-      # Step 5: Upload the versioned ZIP file
-      - name: Upload the versioned ZIP file
-        uses: actions/upload-release-asset@v1
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-            upload_url: ${{ steps.create-release.outputs.upload_url }}
-            asset_path: artifacts/Resource_Manager_Template-${{ env.VERSION }}.zip
-            asset_name: Resource_Manager_Template-${{ env.VERSION }}.zip
-            asset_content_type: application/zip
-
-      # Step 6: Create a static ZIP for the Resource Manager Template Directory
-      - name: Create Resource_Manager_Template Static Zip
+      - name: Create Resource Manager Template package
         run: |
           cd templates/Resource_Manager_Template
-          zip -r ../../artifacts/Resource_Manager_Template-latest.zip .
+          zip -r ../../Resource_Manager_Template-${{ steps.version.outputs.VERSION }}.zip . \
+            -x '.terraform/*' -x '.terraform.lock.hcl'
           cd ../..
-          # Verify the file was created
-          if [ -f "artifacts/Resource_Manager_Template-latest.zip" ]; then
-            echo "✅ Static ZIP created successfully"
-            ls -la artifacts/Resource_Manager_Template-latest.zip
-          else
-            echo "❌ Failed to create static ZIP"
-            exit 1
-          fi
+          cp Resource_Manager_Template-${{ steps.version.outputs.VERSION }}.zip Resource_Manager_Template-latest.zip
 
-      # Step 7: Delete existing static ZIP (Resource_Manager_Template-latest.zip) file from previous releases
-      - name: Delete previous static asset from all releases
+      - name: Delete previous static asset from older releases
         continue-on-error: true
         run: |
-          echo "Searching for existing static assets to remove..."
-          
-          # Get all releases with error handling
-          RELEASES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100") || {
-            echo "❌ Failed to fetch releases"
-            exit 1
-          }
-          
-          # Validate that we got valid JSON
-          if ! echo "$RELEASES" | jq empty 2>/dev/null; then
-            echo "❌ Invalid JSON response from GitHub API"
-            exit 1
-          fi
-          
-          # Find and delete Resource_Manager_Template-latest.zip from all releases
-          echo "$RELEASES" | jq -r '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id' | while read -r asset_id; do
-            [ -n "$asset_id" ] && {
-              echo "Deleting asset ID: $asset_id"
-              curl -X DELETE -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id" || {
-                echo "❌ Failed to delete asset $asset_id"
-                exit 1
-              }
-              echo "✅ Successfully deleted asset $asset_id"
-            }
+          RELEASES=$(gh api repos/${{ github.repository }}/releases?per_page=100 --jq '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id')
+          for asset_id in $RELEASES; do
+            echo "Deleting asset ID: $asset_id"
+            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$asset_id
           done
-          
-          echo "✅ Cleanup completed"
-          
-      # Step 8: Upload new static ZIP to current release
-      - name: Upload the static ZIP file
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create-release.outputs.upload_url }}
-          asset_path: artifacts/Resource_Manager_Template-latest.zip
-          asset_name: Resource_Manager_Template-latest.zip
-          asset_content_type: application/zip
 
-      # Step 9: Verify static ZIP upload and test URL
-      - name: Verify static ZIP upload
+      - name: Create release
         run: |
-          echo "✅ Successfully uploaded both assets:"
-          echo "   📋 Resource_Manager_Template-${{ env.VERSION }}.zip (for auditing)"
-          echo "   🔗 Resource_Manager_Template-latest.zip (static URL)"
-          echo ""
-          
-          STATIC_URL="https://github.com/${{ github.repository }}/releases/latest/download/Resource_Manager_Template-latest.zip"
-          echo "Static URL: $STATIC_URL"
-          
-          # Test that the static URL is accessible (returns 200 or 302)
-          echo "Testing static URL accessibility..."
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -I "$STATIC_URL" 2>/dev/null)
-          
-          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "302" ]; then
-            echo "✅ Static URL is accessible (HTTP $HTTP_STATUS)"
-          else
-            echo "⚠️ Static URL returned HTTP $HTTP_STATUS - may need time to propagate"
-            # Don't fail the workflow for this, as it might just need time
-          fi
-
-
-
-
-
-
-
-
+          gh release create "${{ steps.version.outputs.VERSION }}" \
+            --title "Release ${{ steps.version.outputs.VERSION }}" \
+            --generate-notes \
+            "Resource_Manager_Template-${{ steps.version.outputs.VERSION }}.zip" \
+            "Resource_Manager_Template-latest.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
