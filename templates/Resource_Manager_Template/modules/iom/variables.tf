@@ -8,6 +8,11 @@ variable "expected_home_region" {
   description = "The Home Region that was specified when registering this OCI tenancy in the Falcon Cloud Security registration wizard. The value entered in the wizard must match the actual Home Region for the tenancy."
 }
 
+variable "home_region_name" {
+  type        = string
+  description = "The actual home region name for the tenancy, as determined by the region subscriptions data source."
+}
+
 variable "user_name" {
   type        = string
   description = "Friendly name for the OCI IAM user created when this template gets applied."

@@ -1,9 +1,10 @@
 terraform {
-  required_version = ">= 1.2.0"
+  required_version = ">= 1.5.0"
   required_providers {
     oci = {
-      source  = "oracle/oci"
-      version = "~> 4.0"
+      source                = "oracle/oci"
+      version               = "~> 8.0"
+      configuration_aliases = [oci.home_region]
     }
   }
 }
@@ -14,8 +15,13 @@ terraform {
 
 
 locals {
-  email         = data.oci_identity_domains.default_domain.domains == null ? "" : var.user_email_address
-  idcs_endpoint = data.oci_identity_domains.default_domain.domains == null ? "" : data.oci_identity_domains.default_domain.domains[0].url
+  has_domain_url = (
+    data.oci_identity_domains.default_domain.domains != null &&
+    length(data.oci_identity_domains.default_domain.domains) > 0 &&
+    data.oci_identity_domains.default_domain.domains[0].url != ""
+  )
+  email         = local.has_domain_url ? var.user_email_address : ""
+  idcs_endpoint = local.has_domain_url ? data.oci_identity_domains.default_domain.domains[0].url : ""
 
   #The following locals are used to ensure that the provided OCI User API public key is formatted correctly
 
@@ -57,19 +63,10 @@ locals {
 
 # This will see if a the Default Identity Domain exists in the tenancy, to determine if tenancy uses Identity Domains or not (the resources that get deployed change depending on if a tenancy is using Identity Domains and data from the default domain is needed to configure some of the resources).
 data "oci_identity_domains" "default_domain" {
+  provider       = oci.home_region
   compartment_id = var.tenancy_ocid
   display_name   = "Default"
 }
-
-# Determines the home region for the Tenancy where this template is being deployed
-data "oci_identity_region_subscriptions" "homeregion" {
-  tenancy_id = var.tenancy_ocid
-  filter {
-    name   = "is_home_region"
-    values = ["true"]
-  }
-}
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 #DEPLOY RESOURCES
@@ -78,6 +75,7 @@ data "oci_identity_region_subscriptions" "homeregion" {
 
 # Creates new IAM user that will be used by Falcon Cloud Security to access tenancy
 resource "oci_identity_user" "fcs_inventory_user" {
+  provider       = oci.home_region
   compartment_id = var.tenancy_ocid
   name           = var.user_name
   description    = "DO NOT TOUCH. Service account used by CrowdStrike to inventory resources in tenancy"
@@ -86,8 +84,8 @@ resource "oci_identity_user" "fcs_inventory_user" {
   # Checks that the tenancy's home region matches the value that was provided in the first step of the Falcon Cloud Security registration wizard
   lifecycle {
     precondition {
-      condition     = var.expected_home_region == data.oci_identity_region_subscriptions.homeregion.region_subscriptions[0].region_name
-      error_message = "This tenancy has been configured in Falcon Cloud Security with a home region of ${var.expected_home_region}. It appears that the actual home region is ${data.oci_identity_region_subscriptions.homeregion.region_subscriptions[0].region_name}. To fix this:\n1. Delete this stack in OCI Resource Manager. \n2. Go to the Falcon Cloud Security console and open the registration wizard for this tenancy.\n3. Go to Step 1 in the wizard and change the Home Region dropdown from ${var.expected_home_region} to ${data.oci_identity_region_subscriptions.homeregion.region_subscriptions[0].region_name}.\n4. Download the updated template.\n5. Return to OCI Resource Manager and run the new template."
+      condition     = var.expected_home_region == var.home_region_name
+      error_message = "This tenancy has been configured in Falcon Cloud Security with a home region of ${var.expected_home_region}. It appears that the actual home region is ${var.home_region_name}. To fix this:\n1. Delete this stack in OCI Resource Manager. \n2. Go to the Falcon Cloud Security console and open the registration wizard for this tenancy.\n3. Go to Step 1 in the wizard and change the Home Region dropdown from ${var.expected_home_region} to ${var.home_region_name}.\n4. Download the updated template.\n5. Return to OCI Resource Manager and run the new template."
     }
   }
 }
@@ -95,6 +93,7 @@ resource "oci_identity_user" "fcs_inventory_user" {
 
 # Creates group to house the IAM user defined by "fcs_inventory_user"
 resource "oci_identity_group" "fcs_inventory_group" {
+  provider       = oci.home_region
   compartment_id = var.tenancy_ocid
   name           = var.group_name
   description    = "DO NOT TOUCH. Group for CrowdStrike Falcon Cloud Security (FCS) service account. Used by FCS to generate inventory of all supported resources in the tenancy"
@@ -102,6 +101,7 @@ resource "oci_identity_group" "fcs_inventory_group" {
 
 # Add "fcs_inventory_user" to "fcs_inventory_group"
 resource "oci_identity_user_group_membership" "fcs_user_into_group" {
+  provider = oci.home_region
   group_id = oci_identity_group.fcs_inventory_group.id
   user_id  = oci_identity_user.fcs_inventory_user.id
 }
@@ -109,7 +109,8 @@ resource "oci_identity_user_group_membership" "fcs_user_into_group" {
 # Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
 # This resource will get created if domain is not enabled
 resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
-  count          = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
+  provider       = oci.home_region
+  count          = local.has_domain_url ? 0 : 1
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id = var.tenancy_ocid
@@ -157,7 +158,8 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
 # Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
 # This resource will get created if domain enabled
 resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
-  count          = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
+  provider       = oci.home_region
+  count          = local.has_domain_url ? 1 : 0
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id = var.tenancy_ocid
@@ -206,7 +208,8 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
 # Associates the public key portion of an API key with the IAM user defined by "fcs_inventory_user". Falcon Cloud Security will use this API key to authenticate into tenancy as the associated IAM user.
 # This resource is only created if tenancy uses Identity Domains.
 resource "oci_identity_domains_api_key" "fcs_inventory_user_api_key" {
-  count         = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
+  provider      = oci.home_region
+  count         = local.has_domain_url ? 1 : 0
   idcs_endpoint = local.idcs_endpoint
   key           = local.reformatted_api_public_key
   schemas       = ["urn:ietf:params:scim:schemas:oracle:idcs:apikey"]
@@ -226,7 +229,8 @@ resource "oci_identity_domains_api_key" "fcs_inventory_user_api_key" {
 # Associates the public key portion of an API key with the IAM user defined by "fcs_inventory_user". Falcon Cloud Security will use this API key to authenticate into tenancy as the associated IAM user.
 # This resource is only created if tenancy does not use Identity Domains.
 resource "oci_identity_api_key" "fcs_inventory_user_api_key" {
-  count     = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
+  provider  = oci.home_region
+  count     = local.has_domain_url ? 0 : 1
   key_value = local.reformatted_api_public_key
   user_id   = oci_identity_user.fcs_inventory_user.id
 }
