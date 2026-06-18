@@ -15,8 +15,13 @@ terraform {
 
 
 locals {
-  email         = data.oci_identity_domains.default_domain.domains == null ? "" : var.user_email_address
-  idcs_endpoint = data.oci_identity_domains.default_domain.domains == null ? "" : data.oci_identity_domains.default_domain.domains[0].url
+  has_domain_url = (
+    data.oci_identity_domains.default_domain.domains != null &&
+    length(data.oci_identity_domains.default_domain.domains) > 0 &&
+    data.oci_identity_domains.default_domain.domains[0].url != ""
+  )
+  email         = local.has_domain_url ? var.user_email_address : ""
+  idcs_endpoint = local.has_domain_url ? data.oci_identity_domains.default_domain.domains[0].url : ""
 
   #The following locals are used to ensure that the provided OCI User API public key is formatted correctly
 
@@ -105,7 +110,7 @@ resource "oci_identity_user_group_membership" "fcs_user_into_group" {
 # This resource will get created if domain is not enabled
 resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
   provider       = oci.home_region
-  count          = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
+  count          = local.has_domain_url ? 0 : 1
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id = var.tenancy_ocid
@@ -154,7 +159,7 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
 # This resource will get created if domain enabled
 resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
   provider       = oci.home_region
-  count          = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
+  count          = local.has_domain_url ? 1 : 0
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id = var.tenancy_ocid
@@ -204,7 +209,7 @@ resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
 # This resource is only created if tenancy uses Identity Domains.
 resource "oci_identity_domains_api_key" "fcs_inventory_user_api_key" {
   provider      = oci.home_region
-  count         = data.oci_identity_domains.default_domain.domains != null ? 1 : 0
+  count         = local.has_domain_url ? 1 : 0
   idcs_endpoint = local.idcs_endpoint
   key           = local.reformatted_api_public_key
   schemas       = ["urn:ietf:params:scim:schemas:oracle:idcs:apikey"]
@@ -225,7 +230,7 @@ resource "oci_identity_domains_api_key" "fcs_inventory_user_api_key" {
 # This resource is only created if tenancy does not use Identity Domains.
 resource "oci_identity_api_key" "fcs_inventory_user_api_key" {
   provider  = oci.home_region
-  count     = data.oci_identity_domains.default_domain.domains == null ? 1 : 0
+  count     = local.has_domain_url ? 0 : 1
   key_value = local.reformatted_api_public_key
   user_id   = oci_identity_user.fcs_inventory_user.id
 }
