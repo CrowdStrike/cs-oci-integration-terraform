@@ -107,10 +107,9 @@ resource "oci_identity_user_group_membership" "fcs_user_into_group" {
 }
 
 # Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
-# This resource will get created if domain is not enabled
-resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
+# Classic policy syntax (without 'Default'/ domain prefix) works for both Identity Domains and non-Identity Domains tenancies.
+resource "oci_identity_policy" "fcs_inventory_policy" {
   provider       = oci.home_region
-  count          = local.has_domain_url ? 0 : 1
   name           = var.policy_name
   description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
   compartment_id = var.tenancy_ocid
@@ -154,58 +153,6 @@ resource "oci_identity_policy" "fcs_inventory_policy_without_domains" {
     "Allow group ${var.group_name} to read mysql-family in tenancy",
     "Allow group ${var.group_name} to read dynamic-groups in tenancy",
     "Allow group ${var.group_name} to read secret-family in tenancy",
-  ]
-}
-
-# Creates new policy with permissions Falcon Cloud Security needs to monitor supported resources in the tenancy. Policy's permissions get applied to users in "fcs_inventory_group"
-# This resource will get created if domain enabled
-resource "oci_identity_policy" "fcs_inventory_policy_with_domains" {
-  provider       = oci.home_region
-  count          = local.has_domain_url ? 1 : 0
-  name           = var.policy_name
-  description    = "DO NOT TOUCH. This policy allows CrowdStrike Falcon Cloud Security to create an inventory of all supported resources in the tenancy"
-  compartment_id = var.tenancy_ocid
-  statements = [
-    "Allow group 'Default'/'${var.group_name}' to read policies in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect compartments in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect users in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect groups in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect domains in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect orm-stacks in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read orm-jobs in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read instances in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read buckets in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read virtual-network-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect autonomous-database-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read vaults in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read keys in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read file-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read cluster-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read cloudevents-rules in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read volume-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read load-balancers in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read functions-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read data-safe-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read repos in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read ons-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read database-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read leaf-certificate-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read usage-budgets in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read stream-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read waf-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read serviceconnectors in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read api-gateway-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read cloud-guard-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to inspect ons-subscriptions in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read nosql-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read instance-images in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read logging-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read route-tables in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read network-security-groups in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read mysql-family in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read dynamic-groups in tenancy",
-    "Allow group 'Default'/'${var.group_name}' to read secret-family in tenancy",
-
   ]
 }
 
