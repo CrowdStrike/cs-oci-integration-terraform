@@ -67,3 +67,57 @@ jobs:
 
       - name: Run TFLint
         run: tflint --recursive -f compact
+
+  version-check:
+    runs-on: ubuntu-latest
+    name: Check template_version bump
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Require a strictly-increasing template_version when the template changes
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          ROOT=templates/Resource_Manager_Template/outputs.tf
+          IOM=templates/Resource_Manager_Template/modules/iom/outputs.tf
+          extract() { grep -A2 'output "template_version"' | grep 'value' | sed -E 's/.*"(v[0-9]+\.[0-9]+\.[0-9]+)".*/\1/'; }
+
+          git fetch --quiet origin "$BASE_REF"
+
+          # Only require a bump when the deployable template actually changed.
+          if git diff --quiet "origin/$BASE_REF...HEAD" -- templates/Resource_Manager_Template/; then
+            echo "No template changes; version bump not required."
+            exit 0
+          fi
+
+          HEAD_V=$(extract < "$ROOT")
+          IOM_V=$(extract < "$IOM")
+          BASE_V=$(git show "origin/$BASE_REF:$ROOT" | extract)
+          echo "base=$BASE_V root=$HEAD_V iom=$IOM_V"
+
+          if [ -z "$HEAD_V" ] || [ -z "$BASE_V" ]; then
+            echo "::error::Could not parse template_version (base=$BASE_V head=$HEAD_V)."
+            exit 1
+          fi
+          if [ "$HEAD_V" != "$IOM_V" ]; then
+            echo "::error::template_version differs between files: root=$HEAD_V, iom=$IOM_V. Keep them in sync."
+            exit 1
+          fi
+          if [ "$HEAD_V" = "$BASE_V" ]; then
+            echo "::error::Template files changed but template_version is still $HEAD_V. Bump it in $ROOT and $IOM."
+            exit 1
+          fi
+          # Reject downgrades / reuse: head must be strictly greater than base.
+          if [ "$(printf '%s\n%s\n' "$BASE_V" "$HEAD_V" | sort -V | tail -1)" != "$HEAD_V" ]; then
+            echo "::error::template_version $HEAD_V is not greater than base $BASE_V (backwards versions are not allowed)."
+            exit 1
+          fi
+          echo "OK: template_version bumped $BASE_V -> $HEAD_V"
