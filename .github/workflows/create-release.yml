@@ -23,7 +23,21 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Check whether release already exists
+        id: check
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "::warning::Release $VERSION already exists; skipping release. Bump template_version in outputs.tf to publish a new release."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Resource Manager Template package
+        if: steps.check.outputs.exists == 'false'
         run: |
           cd templates/Resource_Manager_Template
           zip -r ../../Resource_Manager_Template-${{ steps.version.outputs.VERSION }}.zip . \
@@ -32,6 +46,7 @@ jobs:
           cp Resource_Manager_Template-${{ steps.version.outputs.VERSION }}.zip Resource_Manager_Template-latest.zip
 
       - name: Delete previous static asset from older releases
+        if: steps.check.outputs.exists == 'false'
         continue-on-error: true
         run: |
           RELEASES=$(gh api repos/${{ github.repository }}/releases?per_page=100 --jq '.[] | select(.assets != null) | .assets[] | select(.name=="Resource_Manager_Template-latest.zip") | .id')
@@ -43,6 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create release
+        if: steps.check.outputs.exists == 'false'
         run: |
           gh release create "${{ steps.version.outputs.VERSION }}" \
             --title "Release ${{ steps.version.outputs.VERSION }}" \
